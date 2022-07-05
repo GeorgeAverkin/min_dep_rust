@@ -59,11 +59,35 @@ fn nanosleep() {
     }
 }
 
+fn exit(code: usize) {
+    let time = timespec { tv_sec: 3, tv_nsec: 0 };
+
+    unsafe {
+        asm!(
+            "syscall",
+            in("rax") 60usize, // syscall number
+            in("rdi") code,  // exit code
+        );
+    }
+}
 
 
+#[cfg(feature = "static")]
+#[no_mangle]
+fn _start() {
+    write();
+    // loop {
+    //     nanosleep();
+    // }
+    exit(0);
+}
+
+#[cfg(not(feature = "static"))]
 #[no_mangle]
 fn main(_argc: isize, _argv: *const *const u8) -> isize {
     write();
-    nanosleep();
+    loop {
+        nanosleep();
+    }
     0
 }

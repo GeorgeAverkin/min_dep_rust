@@ -2,19 +2,19 @@
 set -e
 
 PROJECT_DIR="$(git rev-parse --show-toplevel)"
-RUST_LIB="$HOME/Documents/projects/rust/build/x86_64-unknown-linux-gnu/lib"
+RUST_LIB="/path/to/rust/build/x86_64-unknown-linux-gnu/lib"
 
 clean() {
     if [ -e "$PROJECT_DIR/min_dep_rust.o" ]; then
-        rm "$PROJECT_DIR/min_dep_rust.o"
+        rm -v "$PROJECT_DIR/min_dep_rust.o"
     fi
 
     if [ -e "$PROJECT_DIR/min_dep_rust" ]; then
-        rm "$PROJECT_DIR/min_dep_rust"
+        rm -v "$PROJECT_DIR/min_dep_rust"
     fi
 
     if [ -d "$PROJECT_DIR/target" ]; then
-        rm -r "$PROJECT_DIR/target"
+        rm -vr "$PROJECT_DIR/target"
     fi
 }
 
@@ -27,7 +27,7 @@ compile() {
         --emit obj
         src/main.rs
     )
-    RUSTC_LOG=info rustc ${args[@]}
+    rustc ${args[@]}
 }
 
 find_one() {
@@ -35,18 +35,41 @@ find_one() {
     test $(basename "$1") = "$1"
 }
 
-link() {
+link_static() {
     local collect2=$(find_one 'collect2')
-    local scrt1=$(find_one 'Scrt1.o')
     local liblto_plugin=$(find_one 'liblto_plugin.so')
+    local scrt1=$(find_one 'Scrt1.o')
     local crtbegins=$(find_one 'crtbeginS.o')
     local crtends=$(find_one 'crtendS.o')
+    local crtn=$(find_one 'crtn.o')
+    local crti=$(find_one 'crti.o')
     
-    # echo $scrt1
-    # echo $liblto_plugin
-    # echo $collect2
-    # echo $crtbegins
-    # echo $crtends
+    local args=(
+        -o "$PROJECT_DIR/min_dep_rust"
+        # -lc
+        -static
+        "$PROJECT_DIR/min_dep_rust.o"
+        # .o files
+        # $crti
+        # $scrt1
+        # $crtbegins
+        # $crtends
+        # $crtn
+    )
+    # echo " ${args[@]/%/$'\n'}" | column
+
+    $collect2 ${args[@]}
+}
+
+link() {
+    local collect2=$(find_one 'collect2')
+    local liblto_plugin=$(find_one 'liblto_plugin.so')
+    local scrt1=$(find_one 'Scrt1.o')
+    local crtbegins=$(find_one 'crtbeginS.o')
+    local crtends=$(find_one 'crtendS.o')
+    local crtn=$(find_one 'crtn.o')
+    local crti=$(find_one 'crti.o')
+    
     local args=(
         -plugin $liblto_plugin
         -plugin-opt=/usr/libexec/gcc/x86_64-redhat-linux/11/lto-wrapper
@@ -58,7 +81,7 @@ link() {
         -m elf_x86_64
         -dynamic-linker /lib64/ld-linux-x86-64.so.2
         -pie
-        -o /home/owl/Documents/projects/min_dep_rust/min_dep_rust
+        -o "$PROJECT_DIR/min_dep_rust"
         $scrt1
         /usr/lib64/crti.o
         $crtbegins
@@ -72,10 +95,11 @@ link() {
         -znoexecstack
         -znow
         -zrelro
-        /home/owl/Documents/projects/min_dep_rust/min_dep_rust.o
+        "$PROJECT_DIR/min_dep_rust.o"
         $crtends
         /usr/lib64/crtn.o
     )
+    # echo " ${args[@]/%/$'\n'}" | column
 
     $collect2 ${args[@]}
 }
