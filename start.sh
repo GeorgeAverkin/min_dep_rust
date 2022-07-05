@@ -27,7 +27,7 @@ compile() {
         --emit obj
         src/main.rs
     )
-    rustc ${args[@]}
+    rustc $@ ${args[@]}
 }
 
 find_one() {
@@ -37,27 +37,12 @@ find_one() {
 
 link_static() {
     local collect2=$(find_one 'collect2')
-    local liblto_plugin=$(find_one 'liblto_plugin.so')
-    local scrt1=$(find_one 'Scrt1.o')
-    local crtbegins=$(find_one 'crtbeginS.o')
-    local crtends=$(find_one 'crtendS.o')
-    local crtn=$(find_one 'crtn.o')
-    local crti=$(find_one 'crti.o')
     
     local args=(
         -o "$PROJECT_DIR/min_dep_rust"
-        # -lc
         -static
         "$PROJECT_DIR/min_dep_rust.o"
-        # .o files
-        # $crti
-        # $scrt1
-        # $crtbegins
-        # $crtends
-        # $crtn
     )
-    # echo " ${args[@]/%/$'\n'}" | column
-
     $collect2 ${args[@]}
 }
 
@@ -104,7 +89,17 @@ link() {
     $collect2 ${args[@]}
 }
 
-clean
-compile
-link
-./min_dep_rust
+main() {
+    clean
+
+    if [ "$1" == static ]; then
+        compile --cfg 'feature="static"'
+        link_static
+    else
+        compile
+        link
+    fi
+    ./min_dep_rust
+}
+
+main $@
